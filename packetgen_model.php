@@ -35,9 +35,20 @@ class PacketGen
     $checkedpacket = array();
     foreach ($packet as $variable)
     {
-      if ($variable->type==0) $variable->value = (bool) $variable->value;
-      if ($variable->type==1) $variable->value = (int) $variable->value;
-      if ($variable->type!=0 && $variable->type!=1) $variable->value = 0;
+      if ($variable->type==0) {
+        $variable->value = (bool) $variable->value;
+      } elseif ($variable->type==1) {
+        $variable->value = (int) $variable->value;
+      } elseif ($variable->type==2) {
+        $variable->value = (int) $variable->value;
+        // Limit to byte value
+        if ($variable->value>256) $variable->value = 256;
+        if ($variable->value<0) $variable->value = 0;
+        
+      } else {
+        $variable->value = 0;
+      }
+      
       $checkedpacket[] = array(
         'name'=>preg_replace('/[^\w\s-_]/','',$variable->name),
         'type'=>intval($variable->type),
@@ -65,6 +76,17 @@ class PacketGen
     $result = $this->mysqli->query("SELECT packet FROM packetgen WHERE `userid` = '$userid'");
     $row = $result->fetch_array();
     $packet = json_decode($row['packet']);
+    
+    if ($packet) {
+      // Add special variable values for time
+      foreach ($packet as $variable)
+      {
+        if ($variable->name=='hour') $variable->value = date('H');
+        if ($variable->name=='minute') $variable->value = date('i');
+        if ($variable->name=='second') $variable->value = date('s');
+      }
+    }
+    
     return $packet;
   }
   
@@ -88,6 +110,11 @@ class PacketGen
     
     foreach ($packet as $variable)
     {
+      // special variable values
+      if ($variable->name=='hour') $variable->value = date('H');
+      if ($variable->name=='minute') $variable->value = date('i');
+      if ($variable->name=='second') $variable->value = date('s');
+           
       $val = $variable->value;
       
       if ($variable->type==0)
@@ -100,6 +127,13 @@ class PacketGen
         $p2 = $val >> 8;
         $p1 = $val - ($p2<<8);
         $str .= $p1.",".$p2.",";  
+      }
+      
+      if ($variable->type==2)
+      {
+        if ($val>256) $val = 256;
+        if ($val<0) $val = 0;
+        $str .= $val.","; 
       }
       
     }

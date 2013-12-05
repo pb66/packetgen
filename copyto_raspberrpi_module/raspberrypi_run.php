@@ -82,7 +82,8 @@
   
   $controltime = time();
   $controlinterval = 600;
-    
+  $controlinterval = $packetgen->get_interval($session['userid']);
+  
   // Open the stream for read and write and use it.
   $f = fopen($filename, "r+", false, $c);
   stream_set_timeout($f, 0,1000);
@@ -111,6 +112,8 @@
 
         $settings = $raspberrypi->get();
         $session['userid'] = $settings->userid;
+        
+        $controlinterval = $packetgen->get_interval($session['userid']);
 
         if ($settings->sgroup !=$group) {
           $group = $settings->sgroup; 
@@ -313,18 +316,6 @@
           }
         }
       }
-
-      // Sends the time to any listening nodes, including EmonGLCD's
-      if ($settings->sendtimeinterval!=0 && time()-$glcdtime > $settings->sendtimeinterval)
-      {
-        $glcdtime = time();
-        $hour = date('H');
-        $min = date('i');
-        fprintf($f,"00,$hour,$min,00,s");
-        echo "00,$hour,$min,00s\n";
-        usleep(100);
-      }
-      
       
       // RFM12Pi control packet broadcaster
       if ((time()-$controltime) > $controlinterval)
@@ -333,8 +324,6 @@
         $str = $packetgen->getrfm12packet($session['userid']);
         fprintf($f,$str."s");
         usleep(100);
-        
-        $controlinterval = $packetgen->get_interval($session['userid']);
       }
       
     }

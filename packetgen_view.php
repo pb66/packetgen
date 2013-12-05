@@ -16,6 +16,7 @@
 <br>
 
 <h2>RFM12b Packet Generator</h2>
+<p><b>Note:</b> variables <i>hour, minute</i> and <i>second</i> are special variable placeholders they will be assigned the current system time automatically</p>
 
 <div class="input-prepend input-append" >
   <span class="add-on">Current packet size: <b><span id="bytesused"></span>/66 bytes</b></span>
@@ -34,8 +35,9 @@
       <div class="input-prepend input-append">
         <span class="add-on">Type: </span>
         <select style="width:100px" id="variable-type">
-          <option value=1>boolean</option>
-          <option value=2>int</option>
+          <option value=0>boolean</option>
+          <option value=1>int</option>
+          <option value=2>byte</option>
         </select>
       </div>
     </td><td>
@@ -77,17 +79,23 @@ var packet = packetgen.get();
 var interval = packetgen.getinterval();
 var settings = packetgen.get_raspberrypi_settings();
 
+console.log(packet);
 console.log(interval);
 if (!packet) {
   var packet = [
-    {'id':1, 'name':"radiatorA_setpoint", 'type':1, 'value':35},
-    {'id':2, 'name':"radiatorB_setpoint", 'type':1, 'value':35},
-    {'id':3, 'name':"radiatorD_setpoint", 'type':1, 'value':35},
-    {'id':4, 'name':"radiatorD_setpoint", 'type':1, 'value':35},
-    {'id':5, 'name':"lightA", 'type':0, 'value':false},
-    {'id':6, 'name':"lightB", 'type':0, 'value':false},
-    {'id':7, 'name':"lightC", 'type':0, 'value':false},
-    {'id':8, 'name':"lightD", 'type':0, 'value':false}
+    {'id':1, 'name':"glcdspace", 'type':2, 'value':0},
+    {'id':2, 'name':"hour", 'type':2, 'value':0},
+    {'id':3, 'name':"minute", 'type':2, 'value':0},
+    {'id':4, 'name':"second", 'type':2, 'value':0},
+    
+    {'id':5, 'name':"radiatorA_setpoint", 'type':1, 'value':35},
+    {'id':6, 'name':"radiatorB_setpoint", 'type':1, 'value':35},
+    {'id':7, 'name':"radiatorD_setpoint", 'type':1, 'value':35},
+    {'id':8, 'name':"radiatorD_setpoint", 'type':1, 'value':35},
+    {'id':9, 'name':"lightA", 'type':0, 'value':false},
+    {'id':10, 'name':"lightB", 'type':0, 'value':false},
+    {'id':11, 'name':"lightC", 'type':0, 'value':false},
+    {'id':12, 'name':"lightD", 'type':0, 'value':false}
   ];
 }
 
@@ -98,7 +106,7 @@ table.element = "#table";
 
 table.fields = {
   'name':{'title':"<?php echo _('Property name'); ?>", 'type':"text"},
-  'type':{'title':"<?php echo _('Type'); ?>", 'type':"select", 'options':['boolean','int'], 'text-color': "#cc6600"},
+  'type':{'title':"<?php echo _('Type'); ?>", 'type':"select", 'options':['boolean','int','byte'], 'text-color': "#cc6600"},
   'value':{'title':"<?php echo _('Value'); ?>", 'type':"text"},
 
   // Actions
@@ -167,8 +175,9 @@ function calculate_bytes_used(variables)
   var size = 0;
   for (z in variables)
   {
-    if (variables[z].type==0) size += 2;
+    if (variables[z].type==0) size += 1;
     if (variables[z].type==1) size += 2;
+    if (variables[z].type==2) size += 1;
   }
   return size;
 }
@@ -181,6 +190,7 @@ function compile_structure(variables)
     out+="  ";
     if (variables[z].type==0) out+="boolean";
     if (variables[z].type==1) out+="int";
+    if (variables[z].type==2) out+="byte";
     
     out += " "+variables[z].name+";\n";
   }
@@ -200,6 +210,7 @@ function compile_examplecode(variables,settings)
     out+="  ";
     if (variables[z].type==0) out+="boolean";
     if (variables[z].type==1) out+="int";
+    if (variables[z].type==2) out+="byte";
     
     out += " "+variables[z].name+";\n";
   }
