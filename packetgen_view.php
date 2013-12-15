@@ -220,7 +220,7 @@ function compile_examplecode(variables,settings)
   out += "{\n" 
   out += "  Serial.begin(9600);\n"
   out += '  Serial.println("PacketGen Reciever Example");'+"\n";
-  out += "  rf12_initialize(30,";
+  out += "  rf12_initialize(1,";
   
   if (settings.frequency==8) out += "RF12_868MHZ";
   if (settings.frequency==4) out += "RF12_433MHZ";
