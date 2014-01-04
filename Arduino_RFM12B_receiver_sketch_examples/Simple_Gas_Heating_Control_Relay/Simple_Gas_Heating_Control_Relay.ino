@@ -29,6 +29,12 @@
 
 typedef struct
 {
+  byte blankchar;
+  byte hour;
+  byte minute;
+  byte second;
+  int target_temperature;
+  int hysteresis;
   boolean heating;
 
 } EmoncmsPayload;
