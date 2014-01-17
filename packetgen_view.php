@@ -61,6 +61,7 @@
     <option value=60>60s</option>
     <option value=300>5 min</option>
     <option value=600>10 min</option>
+    <option value=0>Never</option>
   </select>
 </div>
 
