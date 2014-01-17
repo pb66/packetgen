@@ -115,6 +115,8 @@ table.fields = {
 };
 
 table.deletedata = true;
+table.sortable = false;
+
 
 table.data = packet;
 packetgen.set(table.data,interval);
