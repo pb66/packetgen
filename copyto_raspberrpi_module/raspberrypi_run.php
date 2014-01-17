@@ -318,7 +318,7 @@
       }
       
       // RFM12Pi control packet broadcaster
-      if ($controlinterval!=0 && (time()-$controltime) > $controlinterval)
+      if ($controlinterval>0 && (time()-$controltime) > $controlinterval)
       {
         $controltime = time();
         $str = $packetgen->getrfm12packet($session['userid']);
