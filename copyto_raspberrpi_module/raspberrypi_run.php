@@ -81,9 +81,9 @@
   }
   
   $controltime = time();
-  $controlinterval = 600;
+  $controlinterval = 60;
   $controlinterval = $packetgen->get_interval($session['userid']);
-  
+
   // Open the stream for read and write and use it.
   $f = fopen($filename, "r+", false, $c);
   stream_set_timeout($f, 0,1000);
@@ -318,7 +318,7 @@
       }
       
       // RFM12Pi control packet broadcaster
-      if ((time()-$controltime) > $controlinterval)
+      if ($controlinterval!=0 && (time()-$controltime) > $controlinterval)
       {
         $controltime = time();
         $str = $packetgen->getrfm12packet($session['userid']);
