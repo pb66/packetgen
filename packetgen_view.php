@@ -64,6 +64,8 @@
     <option value=0>Never</option>
   </select>
 </div>
+<br>
+<button id="resetpacket" class="btn">Reload default packet</button>
 
 <br><br>
 
@@ -80,10 +82,7 @@ var packet = packetgen.get();
 var interval = packetgen.getinterval();
 var settings = packetgen.get_raspberrypi_settings();
 
-console.log(packet);
-console.log(interval);
-if (!packet) {
-  var packet = [
+  var default_packet = [
     {'id':1, 'name':"glcdspace", 'type':2, 'value':0},
     {'id':2, 'name':"hour", 'type':2, 'value':0},
     {'id':3, 'name':"minute", 'type':2, 'value':0},
@@ -98,6 +97,11 @@ if (!packet) {
     {'id':11, 'name':"lightC", 'type':0, 'value':false},
     {'id':12, 'name':"lightD", 'type':0, 'value':false}
   ];
+
+console.log(packet);
+console.log(interval);
+if (!packet) {
+  var packet = default_packet;
 }
 
 if (!interval) interval = 5;
@@ -121,6 +125,14 @@ table.sortable = false;
 
 table.data = packet;
 packetgen.set(table.data,interval);
+
+$("#resetpacket").click(function(){
+  packet = default_packet;
+  table.data = packet;
+  packetgen.set(table.data,interval);
+  
+  table.draw();
+});
 
 table.draw();
 $("#bytesused").html(calculate_bytes_used(table.data));
