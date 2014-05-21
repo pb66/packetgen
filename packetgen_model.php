@@ -49,12 +49,15 @@ class PacketGen
         $variable->value = 0;
       }
       
-      $checkedpacket[] = array(
-        'name'=>preg_replace('/[^\w\s-_]/','',$variable->name),
-        'type'=>intval($variable->type),
-        'value'=>$variable->value
-      );
+      $checkedvariable = new stdClass();
+      $checkedvariable->name = preg_replace('/[^\w\s-_]/','',$variable->name);
+      $checkedvariable->type = (int) $variable->type;
+      $checkedvariable->value = $variable->value;
+      $checkedpacket[] = $checkedvariable;
     }
+    
+    $this->mqtt_broadcast($checkedpacket);
+      
     $packet = json_encode($checkedpacket);
     
     $result = $this->mysqli->query("SELECT * FROM packetgen WHERE `userid` = '$userid'");
@@ -139,5 +142,50 @@ class PacketGen
     }
     
     return $str;
+  }
+  
+  public function mqtt_broadcast($packet)
+  {
+    $bytes = array(); $bi=0;
+    if (!$packet) return false;
+    
+    foreach ($packet as $variable)
+    {
+      // special variable values
+      if ($variable->name=='hour') $variable->value = date('H');
+      if ($variable->name=='minute') $variable->value = date('i');
+      if ($variable->name=='second') $variable->value = date('s');
+           
+      $val = $variable->value;
+      
+      if ($variable->type==0)
+      {
+        $bytes[$bi] = (int) $val; $bi++;
+        
+      }
+      
+      if ($variable->type==1)
+      {
+        $p2 = $val >> 8;
+        $p1 = $val - ($p2<<8);
+        $bytes[$bi] = (int) $p1; $bi++;
+        $bytes[$bi] = (int) $p2; $bi++;
+      }
+      
+      if ($variable->type==2)
+      {
+        if ($val>256) $val = 256;
+        if ($val<0) $val = 0;
+        $bytes[$bi] = (int) $val; $bi++;
+      }
+      
+    }
+    
+    error_reporting(E_ALL ^ (E_NOTICE | E_WARNING)); 
+    require('SAM/php_sam.php');
+    $conn = new SAMConnection();
+    $conn->connect(SAM_MQTT, array(SAM_HOST => '127.0.0.1', SAM_PORT => 1883));
+    $msg_rawserial = new SAMMessage(json_encode($bytes));
+    $conn->send('topic://nodetx', $msg_rawserial);  
   }
 }
