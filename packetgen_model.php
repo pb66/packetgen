@@ -18,7 +18,8 @@ class PacketGen
 {
   private $mysqli;
   private $redis;
-  
+  private $mqtt;
+
   public function __construct($mysqli,$redis)
   {
     $this->mysqli = $mysqli;
@@ -181,11 +182,14 @@ class PacketGen
       
     }
     
-    error_reporting(E_ALL ^ (E_NOTICE | E_WARNING)); 
-    require('SAM/php_sam.php');
-    $conn = new SAMConnection();
-    $conn->connect(SAM_MQTT, array(SAM_HOST => '127.0.0.1', SAM_PORT => 1883));
-    $msg_rawserial = new SAMMessage(json_encode($bytes));
-    $conn->send('topic://nodetx', $msg_rawserial);  
+
+    if(!class_exists('SAMConnection')){
+      error_reporting(E_ALL ^ (E_NOTICE | E_WARNING)); 
+      require('SAM/php_sam.php');
+      $this->mqtt = new SAMConnection();
+      $this->mqtt->connect(SAM_MQTT, array(SAM_HOST => '127.0.0.1', SAM_PORT => 1883));
+    }
+      $msg_rawserial = new SAMMessage(json_encode($bytes));
+      $this->mqtt->send('topic://nodetx', $msg_rawserial);
   }
 }
