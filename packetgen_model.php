@@ -36,6 +36,8 @@ class PacketGen
     foreach ($packet as $variable)
     {
       if ($variable->type==0) {
+        if ($variable->value==="true") $variable->value = true;
+        if ($variable->value==="false") $variable->value = false;
         $variable->value = (bool) $variable->value;
       } elseif ($variable->type==1) {
         $variable->value = (int) $variable->value;
@@ -68,6 +70,46 @@ class PacketGen
       return "packet added";
     }
    
+  }
+  
+  public function update($userid,$id,$value)
+  {
+      $userid = (int) $userid;
+      $id = (int) $id;
+      
+      $result = $this->mysqli->query("SELECT * FROM packetgen WHERE `userid` = '$userid'");
+      $row = $result->fetch_array();
+      $packet = json_decode($row['packet']);
+      
+      if ($id<0 || $id>count($packet)-1) return false;
+      
+      if ($packet[$id]->type==0) {
+        if ($value==="true") $value = true;
+        if ($value==="false") $value = false;
+        $value = (bool) $value;
+      } elseif ($packet[$id]->type==1) {
+        $value = (int) $value;
+      } elseif ($packet[$id]->type==2) {
+        $value = (int) $value;
+        // Limit to byte value
+        if ($value>256) $value = 256;
+        if ($value<0) $value = 0;
+        
+      } else {
+        $value = 0;
+      }
+      
+      $packet[$id]->value = $value;
+      
+      if ($row) {
+          $packet = json_encode($packet);
+          $this->mysqli->query("UPDATE packetgen SET `packet` = '$packet' WHERE `userid` = '$userid'");
+          return "packet updated";
+      }
+      else
+      {
+          return false;
+      }
   }
   
   public function get($userid)

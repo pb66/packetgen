@@ -44,6 +44,11 @@ function packetgen_controller()
       $result = $packetgen->set($session['userid'],get('packet'),get('interval'));
     }
     
+    if ($route->action == 'update' && $session['write'])
+    {
+      $result = $packetgen->update($session['userid'],get('id'),get('value'));
+    }
+    
     if ($route->action == 'rfpacket' && $session['read']) {
       $result = $packetgen->getrfm12packet($session['userid']);
     }
