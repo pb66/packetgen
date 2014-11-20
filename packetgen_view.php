@@ -88,7 +88,7 @@ var settings = packetgen.get_raspberrypi_settings();
     {'id':3, 'name':"minute", 'type':2, 'value':0},
     {'id':4, 'name':"second", 'type':2, 'value':0},
     
-    {'id':5, 'name':"radiatorA_setpoint", 'type':1, 'value':35},
+    {'id':5, 'name':"radiatorA_setpoint", 'type':1, 'value':15},
     {'id':6, 'name':"radiatorB_setpoint", 'type':1, 'value':35},
     {'id':7, 'name':"radiatorC_setpoint", 'type':1, 'value':35},
     {'id':8, 'name':"radiatorD_setpoint", 'type':1, 'value':35},
