@@ -90,12 +90,13 @@ var settings = packetgen.get_raspberrypi_settings();
     
     {'id':5, 'name':"radiatorA_setpoint", 'type':1, 'value':35},
     {'id':6, 'name':"radiatorB_setpoint", 'type':1, 'value':35},
-    {'id':7, 'name':"radiatorD_setpoint", 'type':1, 'value':35},
+    {'id':7, 'name':"radiatorC_setpoint", 'type':1, 'value':35},
     {'id':8, 'name':"radiatorD_setpoint", 'type':1, 'value':35},
     {'id':9, 'name':"lightA", 'type':0, 'value':false},
     {'id':10, 'name':"lightB", 'type':0, 'value':false},
     {'id':11, 'name':"lightC", 'type':0, 'value':false},
     {'id':12, 'name':"lightD", 'type':0, 'value':false}
+    {'id':13, 'name':"heating", 'type':0, 'value':false}
   ];
 
 console.log(packet);
