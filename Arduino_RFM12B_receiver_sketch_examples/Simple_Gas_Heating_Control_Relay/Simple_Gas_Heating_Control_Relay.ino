@@ -2,73 +2,106 @@
 // Hardware: emonTx V2 with JeeLabs relay module (any other ATmega328 / Arduino + relay combo could be used) and  Raspberry Pi with RFM12Pi module to send the control RF packets
 // Software emoncms with RFM12B packet gen module: http://openenergymonitor.blogspot.co.uk/2013/11/adding-control-to-emoncms-rfm12b-packet.html
 // By Glyn Hudson - Part of the OpenEnergyMonitor.org project
-// 15th Dec 2013
 
-// For my own needs and peace of mind this code has a fail safe to turn the heating off after 1hr (I am a frugual user of heating and don't often need more than 1hr of heating at a time)
-// To protect the boiler this code also has a time delay of 5min inbetween switching to avoid the boiler being switched many times in case of system malfunction
-// Watchdog timer has been added in case of microcontroller crash (rare) 
+//Room temperature received from emonTH on node ID and PacketGen Control packets received from RFM12Pi on node 15
 
-#include <JeeLib.h>	     //https://github.com/jcw/jeelib
-#include <RTClib.h>          //https://github.com/jcw/RTC
-RTC_Millis RTC;
+//Nov 2014 
+
+
+
+
+#define RF69_COMPAT 0        //rfm12B
+#include <JeeLib.h>	           //https://github.com/jcw/jeelib
+#include <RTClib.h>             //https://github.com/jcw/rtclib - software RTC
+RTC_Millis RTC; DateTime future;
 #include <Wire.h>
 #include <avr/wdt.h>     // Include watchdog library     
 
+#define myNodeID 2          //node ID of Rx (range 0-30) 
+#define network     210      //network group (can be in the range 1-250).
+#define RF_freq RF12_433MHZ     //Freq of RF12B can be RF12_433MHZ, RF12_868MHZ or RF12_915MHZ. Match freq to module
+
+//FAIL SAFE VARIABLES 
+const int MaxTemp = 22;            //hardcoded max temperature deg C
+const int MaxHeatingTime =4;   //longest period heating can be on for in hrs
+
+
+const int RelayPin=6;
+const int ledPin=9;
+const int RFM12Pi_nodeID=15;
+const int emonTH_nodeID=19;
+const boolean debug=1;
+int unsigned long off_time; 
+
+boolean heating, last_heating_state,relay, PID_control;
+double raw_roomTemp, roomTemp;
+int Setpoint;
+
+//emoncms RF structure
 typedef struct
 {
-  byte blankchar;
+  byte glcdspace;
   byte hour;
   byte minute;
   byte second;
-  int target_temperature;
-  int hysteresis;
+  int radiatorA_setpoint;
+  int radiatorB_setpoint;
+  int radiatorC_setpoint;
+  int radiatorD_setpoint;
+  boolean lightA;
+  boolean lightB;
+  boolean lightC;
+  boolean lightD;
   boolean heating;
 
 } EmoncmsPayload;
-
 EmoncmsPayload emoncms;
 
-const int failsafe_off=(60 * 60);         //turn heating off after 1hr
-const int time_between_switching=(60*5);  //after an on/off cycle this ammount of time (5min) (in seconds) must pass before another is allowed to protect boiler
-const int HeatingRelayPin=6;
-const int ledPin=9;
-unsigned long timeOn, timeOff;
-boolean before, heating;
-boolean debug = 1; 
 
+//Living room emonTH RF structure
+typedef struct {                                                      // RFM12B RF payload datastructure
+      int temp;
+      int temp_external;
+      int humidity;    
+      int battery;                                                  
+} emonTHPayload;
+emonTHPayload emonTH;
 
-void setup ()
+void setup()
 {
+  pinMode(ledPin,OUTPUT);
+  digitalWrite(ledPin,HIGH);
   
-  RTC.begin(DateTime(__DATE__, __TIME__));
-  DateTime now = RTC.now();
-  DateTime future (now.get());
-  
-  rf12_initialize(1,RF12_433MHZ,210); // NodeID, Frequency, Group
+   rf12_initialize(myNodeID,RF_freq,network);   //Initialize RFM12 with settings defined above  
   Serial.begin(9600);
   
-  if (Serial) debug = 1; else debug=0;  
-  if (debug ==1) Serial.println("heating boiler relay controller - openenergymonitor.org");
+  if (debug ==1) {
+    Serial.println("heating boiler relay controller - openenergymonitor.org");
+    Serial.print("Node: "); 
+ Serial.print(myNodeID); 
+ Serial.print(" Freq: "); 
+ if (RF_freq == RF12_433MHZ) Serial.print("433Mhz");
+ if (RF_freq == RF12_868MHZ) Serial.print("868Mhz");
+ if (RF_freq == RF12_915MHZ) Serial.print("915Mhz");  
+ Serial.print(" Network: "); 
+ Serial.println(network);
+  }
   if (debug==0) Serial.end();
-
-  pinMode(HeatingRelayPin, OUTPUT);
-  pinMode(ledPin, OUTPUT);
-  digitalWrite(HeatingRelayPin, LOW);
-
-  digitalWrite(ledPin, HIGH);
-  delay(1500);
-  digitalWrite(ledPin, HIGH);
   
+ delay(3000);
+ digitalWrite(ledPin,LOW);
   wdt_enable(WDTO_8S);   // Enable hardware anti crash watchdog: max 8 seconds
 }
 
-void loop ()
+void loop()
 {
+   DateTime now = RTC.now();   
+  
   if (rf12_recvDone() && rf12_crc == 0 && (rf12_hdr & RF12_HDR_CTL) == 0)         // when RF packet has been received 
   {
-    int node_id = (rf12_hdr & 0x1F);                                             // Extract transmitter node ID
+    int node_id = (rf12_hdr & 0x1F);                                         // Extract transmitter node ID
     
-    if (node_id == 15)                                                           // Emoncms RFM12Pi node id is set to 15
+    if (node_id == RFM12Pi_nodeID)                                       // Emoncms RFM12Pi node id is set to 15
     {
       // The packet data is contained in rf12_data, the *(EmoncmsPayload*) part tells the compiler
       // what the format of the data is so that it can be copied correctly
@@ -77,49 +110,66 @@ void loop ()
       RTC.adjust(DateTime(2013, 1, 1, rf12_data[1], rf12_data[2], rf12_data[3]));   //set software RTC based on time received from emoncms
       DateTime now = RTC.now();
       
+      if ( (emoncms.radiatorA_setpoint> 0) && (emoncms.radiatorA_setpoint < 300)) Setpoint = (emoncms.radiatorA_setpoint / 10.0);  //if setpoint is within limts set PID set point to match radiator A setpoint  
+      
+      heating = emoncms.heating; 
+      
       if (debug==1)
       {
-        Serial.print(emoncms.blankchar); Serial.print(" "); Serial.print(emoncms.hour); Serial.print(" "); Serial.print(emoncms.minute); Serial.print(" ");
-        Serial.print(emoncms.second); Serial.print(" "); Serial.print(emoncms.target_temperature); Serial.print(" "); Serial.print(emoncms.hysteresis); Serial.print(" ");
-        Serial.println(emoncms.heating);
-        Serial.print(now.hour(), DEC); Serial.print(':'); Serial.print(now.minute(), DEC); Serial.print(':'); Serial.print(':'); Serial.print(now.second(), DEC); Serial.println();
+        Serial.print(emoncms.glcdspace); Serial.print(" "); Serial.print(emoncms.hour); Serial.print(" "); Serial.print(emoncms.minute); Serial.print(" ");
+        Serial.print(emoncms.second); Serial.print(" "); Serial.print(emoncms.radiatorA_setpoint); Serial.print(" "); Serial.println(emoncms.heating);
+        //Serial.print(now.hour(), DEC); Serial.print(':'); Serial.print(now.minute(), DEC); Serial.print(':'); Serial.print(':'); Serial.print(now.second(), DEC); Serial.println();
         //Serial.print(before); Serial.print(" "); Serial.println(timeOn); Serial.println(" "); Serial.println(timeOff); Serial.println(" "); Serial.println(millis()); Serial.println(" ");
-        Serial.print("Heating: "); Serial.println(heating);
+        Serial.print("Heating: "); Serial.print(heating); Serial.print(" ");  Serial.print("Relay: "); Serial.println(relay);
+        Serial.print("Now: "); Serial.print(now.get()); Serial.print(" ");  Serial.print("Off Time: "); Serial.println(off_time);
+        Serial.print("Set Point: "); Serial.print(Setpoint); Serial.print(" "); Serial.print(" "); Serial.print("roomTemp"); Serial.print(roomTemp);
         Serial.println();
        }
-     
-      
-      if ((emoncms.heating==1) && (((now.get() - timeOff) > time_between_switching)))        //look for step change from 0 to 1 and only alow heating to turn on after it's been off for 5min to save wear on boiler if something was to go wrong
-      {
-        heating=1;
-        timeOn = now.get();                      //record when the heading was turned on in seconds since 2000
-      }
-      
-      if (emoncms.heating==0)
-      {
-        
-        if (heating==1) timeOff = now.get();     //if heatiing was on before record the time it was turned off in seconds since 2000
-        heating=0;
-     }
-  }
-  }
-
-DateTime now = RTC.now();
-if ((now.get() - timeOn) > failsafe_off) heating=0;          //if heating has been on for 1hr turn it off
+       
+    }
+    
+    
+    if (node_id == emonTH_nodeID)   //living room emonTH temperature sensor   
+    {
+      emonTH = *(emonTHPayload*) rf12_data;
+      raw_roomTemp = (emonTH.temp / 10);
+      if ( (raw_roomTemp > 0) && (raw_roomTemp < 50)) roomTemp=raw_roomTemp;     //check temperature sensor is reporting within reasonable limits for a livingroom                                                                                                      
+      if (debug==1) Serial.print("emonTH"); Serial.print(" "); Serial.println(emonTH.temp);
+    }   
+  } //end of RF receive 
 
 
-if (heating==0) //turn the heating off 
+
+
+if (relay==0) off_time = (now.get() + MaxHeatingTime * 3600L);
+ last_heating_state=relay;        //record last relay heating state 
+ 
+ if ( (heating==1) && (now.get() < off_time ) && (roomTemp < MaxTemp) && (int(roomTemp) < Setpoint)) relay =1;          //if heating is turned on and fail safe checks are passed and room temp is colder than setpoint
+else relay =0;      
+
+
+
+//if ((heating==0) && (last_heating_state==1)) 
+
+
+  
+ //control heating 
+if (relay==0) //turn the heating off 
 {
-  digitalWrite(HeatingRelayPin, LOW);
+  digitalWrite(RelayPin, LOW);
   digitalWrite(ledPin, LOW);
 }
 
-if (heating==1) //turn the heating on
+if (relay==1) //turn the heating on
  {
-  digitalWrite(HeatingRelayPin, HIGH);
+  digitalWrite(RelayPin, HIGH);
   digitalWrite(ledPin, HIGH);
- }
-  
+  if (last_heating_state==0) off_time = (now.get() + MaxHeatingTime * 3600L);    //record start time and calculate failsafe off-time, calculate a time which is MaxHeatingTime hrs in the future
+ }    
+ 
 
- wdt_reset();           // Reset watchdog - this must be called every 8s - if not the ATmega328 will reboot
+
+wdt_reset();           // Reset watchdog - this must be called every 8s - if not the ATmega328 will reboot
+
 }
+
