@@ -52,6 +52,10 @@ function packetgen_controller()
     if ($route->action == 'rfpacket' && $session['read']) {
       $result = $packetgen->getrfm12packet($session['userid']);
     }
+
+    if ($route->action == 'getpacket' && $session['read']) {
+      $result = $packetgen->get_packet($session['userid']);
+    }
   }
 
   return array('content'=>$result);

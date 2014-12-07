@@ -182,4 +182,23 @@ class PacketGen
     
     return $str;
   }
+
+  public function get_packet($userid)
+  {
+    $userid = (int) $userid;
+    $result = $this->mysqli->query("SELECT packet FROM packetgen WHERE `userid` = '$userid'");
+    $row = $result->fetch_array();
+    $packet = json_decode($row['packet']);
+
+    if (!$packet) return false;
+
+    foreach ($packet as $variable)
+    {
+      // special variable values
+      if ($variable->name=='hour')   $variable->value = date('H');
+      if ($variable->name=='minute') $variable->value = date('i');
+      if ($variable->name=='second') $variable->value = date('s');
+    }
+    return $packet
+  }
 }
