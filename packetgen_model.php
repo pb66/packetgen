@@ -199,6 +199,6 @@ class PacketGen
       if ($variable->name=='minute') $variable->value = date('i');
       if ($variable->name=='second') $variable->value = date('s');
     }
-    return $packet
+    return $packet;
   }
 }
