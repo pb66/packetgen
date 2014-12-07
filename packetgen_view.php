@@ -69,6 +69,11 @@
 
 <br><br>
 
+<p><b>EmonHub datacodes</b></p>
+<p>Copy the following datacodes string to the nodes section of emonhub.conf for the relevent node id:</p>
+<pre id="datacodes"></pre>
+
+
 <p><b>Structure defenition</b></p>
 <p>Copy the following structure defenition on to nodes that need access to the packet variables:</p>
 <pre id="structure"></pre>
@@ -148,6 +153,7 @@ $("td[field=type]").css('color',"#cc6600");
 $("#table").bind("onEdit", function(e){ });
 
 $("#table").bind("onSave", function(e,id,fields_to_update){
+  $("#datacodes").html(compile_datacodes(table.data));
   $("#structure").html(compile_structure(table.data));
   $("#examplecode").html(compile_examplecode(table.data,settings));
   $("#bytesused").html(calculate_bytes_used(table.data));
@@ -156,6 +162,7 @@ $("#table").bind("onSave", function(e,id,fields_to_update){
 });
 
 $("#table").bind("onDelete", function(e,id,row){ 
+  $("#datacodes").html(compile_datacodes(table.data));
   $("#structure").html(compile_structure(table.data));
   $("#examplecode").html(compile_examplecode(table.data,settings));
   $("#bytesused").html(calculate_bytes_used(table.data));
@@ -177,6 +184,8 @@ $("#variable-add").click(function(){
   $("#examplecode").html(compile_examplecode(packet,settings));
 });
 
+
+$("#datacodes").html(compile_datacodes(packet));
 $("#structure").html(compile_structure(packet));
 $("#examplecode").html(compile_examplecode(packet,settings));
 
@@ -196,6 +205,20 @@ function calculate_bytes_used(variables)
     if (variables[z].type==2) size += 1;
   }
   return size;
+}
+
+function compile_datacodes(variables)
+{
+  var out = "[nodes]\n";
+  out += "    [[99]]\n        datacodes = ";
+  for (z in variables)
+  {
+    if (variables[z].type==0) out+="B,";
+    if (variables[z].type==1) out+="h,";
+    if (variables[z].type==2) out+="B,";
+  }
+  out += "\n";
+  return out;
 }
 
 function compile_structure(variables)
